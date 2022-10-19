@@ -5,6 +5,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"time"
+
+	"todo.joelical.net/internal/data"
 )
 
 // createListHandler for the "POST /v1/list" endpoint
@@ -19,6 +22,20 @@ func (app *application) showListHandler(w http.ResponseWriter, r *http.Request) 
 		http.NotFound(w, r)
 		return
 	}
-	//display the list id
-	fmt.Fprintf(w, "show the details for list %d\n", id)
+
+	//create a new instance of the List struct containing the ID we extracted from our url and some sample data
+	list := data.List{
+		ID:        id,
+		CreatedAt: time.Now(),
+		Name:      "Study",
+		Task:      "study for algebra test",
+		Status:    "Completed",
+		Version:   1,
+	}
+	err = app.writeJSON(w, http.StatusOK, list, nil)
+	if err != nil {
+		app.logger.Println(err)
+		http.Error(w, "The serever encountered a problem and could not process your request", http.StatusInternalServerError)
+	}
+
 }
