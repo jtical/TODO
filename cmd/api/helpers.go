@@ -5,11 +5,17 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
+
+// define a new type named envelope. empty interface means it can be any type
+type envelope map[string]interface{}
 
 func (app *application) readIDParam(r *http.Request) (int64, error) {
 	//use the "ParamsFromContex()" function to get the request context as a slice
@@ -42,4 +48,56 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data interf
 	w.Write(js)
 	return nil
 
+}
+
+// dst stores decoded struct
+func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+	//set the size of request. use http.MaxBytesReader() to limit the size of the request body to 1mb
+	maxBytes := 1_048_576
+	//decode the request body into the target destinatiin
+	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	err := dec.Decode(dst)
+	if err != nil {
+		var syntaxError *json.SyntaxError
+		var unmarshallTypeError *json.UnmarshalTypeError
+		var invalidUnmarshallError *json.InvalidUnmarshalError
+
+		//switch to check for the errors
+		switch {
+		//check for syntax errors
+		case errors.As(err, &syntaxError):
+			return fmt.Errorf("body contains badly-formed JSON(at character %d)", syntaxError.Offset)
+		case errors.Is(err, io.ErrUnexpectedEOF):
+			return errors.New("body contains badly-formed JSON")
+		//Check for wrong types passed by the user
+		case errors.As(err, &unmarshallTypeError):
+			if unmarshallTypeError.Field != "" {
+				return fmt.Errorf("body contains incorrect JSON type for field %q", unmarshallTypeError.Field)
+			}
+			return fmt.Errorf("body contains incorrect JSON type(at charcater %d)", unmarshallTypeError.Offset)
+		//empty body
+		case errors.Is(err, io.EOF):
+			return errors.New("body cannot be empty")
+		//unmappable fields
+		case strings.HasPrefix(err.Error(), "json: unknown field"):
+			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field")
+			return fmt.Errorf("body contains unknown key %s", fieldName)
+		// check for request being too large
+		case err.Error() == "http: request body too large":
+			return fmt.Errorf("body must not be larger than %d bytes", maxBytes)
+		//pass a non-nil pointer error
+		case errors.As(err, &invalidUnmarshallError):
+			panic(err)
+		default:
+			return err
+		}
+	}
+	// call decode again
+	err = dec.Decode(&struct{}{})
+	if err != io.EOF {
+		return errors.New("body must only contain a single JSON value")
+	}
+	return nil
 }

@@ -12,14 +12,27 @@ import (
 
 // createListHandler for the "POST /v1/list" endpoint
 func (app *application) createListHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "creating a new todo list...")
+	// our target decode destination
+	var input struct {
+		Name   string `json:"name"`
+		Task   string `json:"task"`
+		Status string `json:"status"`
+	}
+	//initialize a new json.decode instance
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	//display the request
+	fmt.Fprintf(w, "%+v\n", input)
 }
 
 // showListHandler for the "GET /v1/list" endpoint
 func (app *application) showListHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
-		http.NotFound(w, r)
+		app.notFoundResponse(w, r)
 		return
 	}
 
@@ -32,10 +45,9 @@ func (app *application) showListHandler(w http.ResponseWriter, r *http.Request) 
 		Status:    "Completed",
 		Version:   1,
 	}
-	err = app.writeJSON(w, http.StatusOK, list, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"list": list}, nil)
 	if err != nil {
-		app.logger.Println(err)
-		http.Error(w, "The serever encountered a problem and could not process your request", http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
 	}
 
 }
