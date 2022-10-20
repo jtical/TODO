@@ -61,7 +61,7 @@ func (m ListModel) Get(id int64) (*List, error) {
 	}
 	//create the query
 	query := `
-		SELECT id, created_at, name, task, version
+		SELECT id, created_at, name, task, status,version
 		FROM lists
 		WHERE id = $1
 	`
@@ -73,6 +73,7 @@ func (m ListModel) Get(id int64) (*List, error) {
 		&list.CreatedAt,
 		&list.Name,
 		&list.Task,
+		&list.Status,
 		&list.Version,
 	)
 	//handle any errors
@@ -91,7 +92,23 @@ func (m ListModel) Get(id int64) (*List, error) {
 
 // Update() allows us edit a specific list
 func (m ListModel) Update(list *List) error {
-	return nil
+	//create a query using the newly updated data
+	query := `
+		UPDATE lists
+		SET name = $1,
+			task = $2,
+			status = $3,
+			version = version + 1
+		WHERE id = $4
+		RETURNING version
+	`
+	args := []interface{}{
+		list.Name,
+		list.Task,
+		list.Status,
+		list.ID,
+	}
+	return m.DB.QueryRow(query, args...).Scan(&list.Version)
 }
 
 // Delete() allows us to remove a specific list
