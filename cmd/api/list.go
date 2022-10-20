@@ -3,9 +3,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"todo.joelical.net/internal/data"
 	"todo.joelical.net/internal/validator"
@@ -63,15 +63,19 @@ func (app *application) showListHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	//create a new instance of the List struct containing the ID we extracted from our url and some sample data
-	list := data.List{
-		ID:        id,
-		CreatedAt: time.Now(),
-		Name:      "Study",
-		Task:      "study for algebra test",
-		Status:    "Completed",
-		Version:   1,
+	//Fetch the specific list
+	list, err := app.models.List.Get(id)
+	//handle errors
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
 	}
+	//write the data returned by get()
 	err = app.writeJSON(w, http.StatusOK, envelope{"list": list}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)

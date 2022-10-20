@@ -4,6 +4,7 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"todo.joelical.net/internal/validator"
@@ -54,7 +55,38 @@ func (m ListModel) Insert(list *List) error {
 
 // Get() allows us to retrieve a specfic list
 func (m ListModel) Get(id int64) (*List, error) {
-	return nil, nil
+	//ensure that there is a valid id
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+	//create the query
+	query := `
+		SELECT id, created_at, name, task, version
+		FROM lists
+		WHERE id = $1
+	`
+	//declare a list variable to hold the returned data
+	var list List
+	//execute the query using QueryRow(
+	err := m.DB.QueryRow(query, id).Scan(
+		&list.ID,
+		&list.CreatedAt,
+		&list.Name,
+		&list.Task,
+		&list.Version,
+	)
+	//handle any errors
+	if err != nil {
+		//check the type of error
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	//success
+	return &list, nil
 }
 
 // Update() allows us edit a specific list
