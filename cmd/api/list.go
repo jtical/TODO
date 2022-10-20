@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"todo.joelical.net/internal/data"
+	"todo.joelical.net/internal/validator"
 )
 
 // createListHandler for the "POST /v1/list" endpoint
@@ -24,6 +25,22 @@ func (app *application) createListHandler(w http.ResponseWriter, r *http.Request
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	//copy the values from the input struct to a new lists struct
+	list := &data.List{
+		Name:   input.Name,
+		Task:   input.Task,
+		Status: input.Status,
+	}
+
+	//Initialize a new validator instance
+	v := validator.New()
+
+	//check the map to determain if there were any validation errors
+	if data.ValidateList(v, list); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
 	//display the request
 	fmt.Fprintf(w, "%+v\n", input)
 }
