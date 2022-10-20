@@ -40,9 +40,19 @@ func (app *application) createListHandler(w http.ResponseWriter, r *http.Request
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-
-	//display the request
-	fmt.Fprintf(w, "%+v\n", input)
+	//create a list
+	err = app.models.List.Insert(list)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+	//create a location header for the newly created resource
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/list/%d", list.ID))
+	//write the response with 201 -created status code with the body being the list data and the header being the headers map
+	err = app.writeJSON(w, http.StatusCreated, envelope{"list": list}, headers)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
 
 // showListHandler for the "GET /v1/list" endpoint
