@@ -178,8 +178,8 @@ func (m ListModel) GetAll(name string, status string, filters Filters) ([]*List,
 	query := `
 		SELECT id, created_at, name, task, status, version
 		FROM lists
-		WHERE (LOWER(name) = LOWER($1) OR $1 = '')
-		AND (LOWER(status) = LOWER($2) OR $2 = '')
+		WHERE (to_tsvector('simple',name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+		AND (to_tsvector('simple',status) @@ plainto_tsquery('simple', $2) OR $2 = '')
 		ORDER BY id
 	`
 	//create a 3 second timeout context
