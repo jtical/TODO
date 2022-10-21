@@ -186,3 +186,36 @@ func (app *application) deleteListHandler(w http.ResponseWriter, r *http.Request
 	}
 
 }
+
+// th displayListHandler() allows the user to see a inventory of lists based on a set of criteria
+func (app *application) displayListHandler(w http.ResponseWriter, r *http.Request) {
+	//create an input struct to hold our query parameters
+	var input struct {
+		Name   string
+		Task   string
+		Status string
+		data.Filters
+	}
+	//initialize a validator instance
+	v := validator.New()
+	//get the URL values map
+	qs := r.URL.Query()
+	// use the helper methods to extract the values
+	input.Name = app.readString(qs, "name", "")
+	input.Task = app.readString(qs, "task", "")
+	input.Status = app.readString(qs, "status", "")
+	//get the page information using readint helper method
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
+	//get the sort information
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	//specify the allowed sort values
+	input.Filters.SortList = []string{"id", "name", "status", "-id", "-name", "-status"}
+	//check for validation errors
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	//result display
+	fmt.Fprintf(w, "%+v\n", input)
+}

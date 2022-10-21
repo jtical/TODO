@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"todo.joelical.net/internal/validator"
 )
 
 // define a new type named envelope. empty interface means it can be any type
@@ -100,4 +102,44 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 		return errors.New("body must only contain a single JSON value")
 	}
 	return nil
+}
+
+// the readString() method returns a string value from the query parameter string or it returns a default value if no matching key is found
+func (app *application) readString(qs url.Values, key string, defaultValue string) string {
+	//get the value
+	value := qs.Get(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+// split comma separted values. readCSV() method splits a value into a slice bases on the comma separator
+// if no matching key is found then the default value is returned
+func (app *application) readCSV(qs url.Values, key string, defaultValue []string) []string {
+	//get the value
+	value := qs.Get(key)
+	if value == "" {
+		return defaultValue
+	}
+	//split the string based on the "," delimeter
+	return strings.Split(value, ",")
+
+}
+
+// the readInt() method converts a string value from the query string to an integer value.
+// if the value cannot be converted to an integer then a validation error is added to the validation errors map
+func (app *application) readInt(qs url.Values, key string, defaultValue int, v *validator.Validator) int {
+	//get the value
+	value := qs.Get(key)
+	if value == "" {
+		return defaultValue
+	}
+	//perform the conversion to an integer
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		v.AddError(key, "must be an integer value")
+		return defaultValue
+	}
+	return intValue
 }
