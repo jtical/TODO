@@ -113,5 +113,28 @@ func (m ListModel) Update(list *List) error {
 
 // Delete() allows us to remove a specific list
 func (m ListModel) Delete(id int64) error {
+	//check if the id exist
+	if id < 1 {
+		return ErrRecordNotFound
+	}
+	//create the delete query
+	query := `
+		DELETE FROM lists
+		WHERE id = $1
+	`
+	//execute the query
+	result, err := m.DB.Exec(query, id)
+	if err != nil {
+		return err
+	}
+	//check how many rows affected by the delte operation. we will use the RowsAffected() on the result variable
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	//check to see if zero rows were affected
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
 	return nil
 }

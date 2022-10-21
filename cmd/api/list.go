@@ -143,3 +143,32 @@ func (app *application) updateListHandler(w http.ResponseWriter, r *http.Request
 	}
 
 }
+
+// deleteListHandler for the "DELETE /v1/list/:id" endpoint
+func (app *application) deleteListHandler(w http.ResponseWriter, r *http.Request) {
+	//gets the id for the list that will be deleted
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	//delete the list from the database. sends a 404 not found status code to the user if there is no matching record.
+	err = app.models.List.Delete(id)
+	//handle errors
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	//return a 200 status ok to the user with a success message
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "list successfully deleted"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
