@@ -85,7 +85,7 @@ func (app *application) showListHandler(w http.ResponseWriter, r *http.Request) 
 
 // updateListHandler for the "PUT /v1/list/:id" endpoint
 func (app *application) updateListHandler(w http.ResponseWriter, r *http.Request) {
-	//this method does a complete replacement
+	//this method does a partial replacement
 	//get the id for the list that needs updating
 	id, err := app.readIDParam(r)
 	if err != nil {
@@ -106,10 +106,12 @@ func (app *application) updateListHandler(w http.ResponseWriter, r *http.Request
 	}
 	//create an input struct to hold data read in from the user
 	// our target decode destination
+	//update input struct to use pointers because pointers have a default value of nil
+	//if the filed remains nil, then we know user did not update it
 	var input struct {
-		Name   string `json:"name"`
-		Task   string `json:"task"`
-		Status string `json:"status"`
+		Name   *string `json:"name"`
+		Task   *string `json:"task"`
+		Status *string `json:"status"`
 	}
 	//initialize a new json.decode instance
 	err = app.readJSON(w, r, &input)
@@ -117,10 +119,17 @@ func (app *application) updateListHandler(w http.ResponseWriter, r *http.Request
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	//copy and update the values in the list variable using the fields in the input struct
-	list.Name = input.Name
-	list.Task = input.Task
-	list.Status = input.Status
+	//check input struct for those updates
+	if input.Name != nil {
+		list.Name = *input.Name
+	}
+	if input.Task != nil {
+		list.Task = *input.Task
+	}
+	if input.Status != nil {
+		list.Status = *input.Status
+	}
+
 	//perform validation on the updated list. if validation fails, then we send a 422 - unprocessable entity response to the user
 	//Initialize a new validator instance
 	v := validator.New()
