@@ -91,6 +91,7 @@ func (m ListModel) Get(id int64) (*List, error) {
 }
 
 // Update() allows us edit a specific list
+// optimistic locking on the version # enssure version has not changed from when i first read it to when will write it back with new changes
 func (m ListModel) Update(list *List) error {
 	//create a query using the newly updated data
 	query := `
@@ -100,6 +101,7 @@ func (m ListModel) Update(list *List) error {
 			status = $3,
 			version = version + 1
 		WHERE id = $4
+		AND version = $5 
 		RETURNING version
 	`
 	args := []interface{}{
@@ -107,8 +109,20 @@ func (m ListModel) Update(list *List) error {
 		list.Task,
 		list.Status,
 		list.ID,
+		list.Version,
 	}
-	return m.DB.QueryRow(query, args...).Scan(&list.Version)
+	//check for edit conflicts
+	err := m.DB.QueryRow(query, args...).Scan(&list.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
+
 }
 
 // Delete() allows us to remove a specific list

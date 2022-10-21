@@ -142,7 +142,12 @@ func (app *application) updateListHandler(w http.ResponseWriter, r *http.Request
 	//pass the updated list record to the update() method
 	err = app.models.List.Update(list)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 	//write the data returned by get()
