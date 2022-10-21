@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"todo.joelical.net/internal/validator"
@@ -173,25 +174,30 @@ func (m ListModel) Delete(id int64) error {
 }
 
 // the GetAll() method returns a list of all the list sorted by id
-func (m ListModel) GetAll(name string, status string, filters Filters) ([]*List, error) {
+func (m ListModel) GetAll(name string, status string, filters Filters) ([]*List, Metadata, error) {
 	//construct the query to return all schools
-	query := `
-		SELECT id, created_at, name, task, status, version
+	//make query into formated string to be able to sort by field and asc or dec dynaimicaly
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) OVER(),id, created_at, name, task, status, version
 		FROM lists
 		WHERE (to_tsvector('simple',name) @@ plainto_tsquery('simple', $1) OR $1 = '')
 		AND (to_tsvector('simple',status) @@ plainto_tsquery('simple', $2) OR $2 = '')
-		ORDER BY id
-	`
+		ORDER BY %s %s, id ASC
+		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortOrder())
+
 	//create a 3 second timeout context
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	//execute the query
-	rows, err := m.DB.QueryContext(ctx, query, name, status)
+	args := []interface{}{name, status, filters.limit(), filters.offset()}
+	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 	//close the result set
 	defer rows.Close()
+	//store total records
+	totalRecords := 0
 	//intialize an empty slice to hold the list data
 	lists := []*List{}
 	//iterate over the rows in the result set
@@ -199,6 +205,7 @@ func (m ListModel) GetAll(name string, status string, filters Filters) ([]*List,
 		var list List
 		//scan the values from the row into the List struct
 		err := rows.Scan(
+			&totalRecords,
 			&list.ID,
 			&list.CreatedAt,
 			&list.Name,
@@ -207,15 +214,16 @@ func (m ListModel) GetAll(name string, status string, filters Filters) ([]*List,
 			&list.Version,
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err
 		}
 		//add the list to our slice
 		lists = append(lists, &list)
 	}
 	//check if any errors occured while proccessing the result set
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
 	//return the result set. the slice of lists
-	return lists, nil
+	return lists, metadata, nil
 }

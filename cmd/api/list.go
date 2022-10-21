@@ -217,13 +217,13 @@ func (app *application) displayListHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	//get a invenortu of all list
-	lists, err := app.models.List.GetAll(input.Name, input.Status, input.Filters)
+	lists, metadata, err := app.models.List.GetAll(input.Name, input.Status, input.Filters)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 	//send a JSON response contain all the lists
-	err = app.writeJSON(w, http.StatusOK, envelope{"lists": lists}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"lists": lists, "metadata": metadata}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
