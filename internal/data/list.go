@@ -3,6 +3,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -44,13 +45,17 @@ func (m ListModel) Insert(list *List) error {
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at, version
 	`
+	//Create a context. time starts when context is created
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	//cleanup to prevent memory leaks
+	defer cancel()
 	//collect the data fields into a slice
 	args := []interface{}{
 		list.Name,
 		list.Task,
 		list.Status,
 	}
-	return m.DB.QueryRow(query, args...).Scan(&list.ID, &list.CreatedAt, &list.Version)
+	return m.DB.QueryRowContext(ctx, query, args...).Scan(&list.ID, &list.CreatedAt, &list.Version)
 }
 
 // Get() allows us to retrieve a specfic list
@@ -67,8 +72,12 @@ func (m ListModel) Get(id int64) (*List, error) {
 	`
 	//declare a list variable to hold the returned data
 	var list List
-	//execute the query using QueryRow(
-	err := m.DB.QueryRow(query, id).Scan(
+	//Create a context. time starts when context is created
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	//cleanup to prevent memory leaks
+	defer cancel()
+	//execute the query using QueryRow(.
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&list.ID,
 		&list.CreatedAt,
 		&list.Name,
@@ -104,6 +113,11 @@ func (m ListModel) Update(list *List) error {
 		AND version = $5 
 		RETURNING version
 	`
+	//Create a context. time starts when context is created
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	//cleanup to prevent memory leaks
+	defer cancel()
+
 	args := []interface{}{
 		list.Name,
 		list.Task,
@@ -112,7 +126,7 @@ func (m ListModel) Update(list *List) error {
 		list.Version,
 	}
 	//check for edit conflicts
-	err := m.DB.QueryRow(query, args...).Scan(&list.Version)
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&list.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -136,8 +150,13 @@ func (m ListModel) Delete(id int64) error {
 		DELETE FROM lists
 		WHERE id = $1
 	`
+	//Create a context. time starts when context is created
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	//cleanup to prevent memory leaks
+	defer cancel()
+
 	//execute the query
-	result, err := m.DB.Exec(query, id)
+	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
