@@ -216,6 +216,16 @@ func (app *application) displayListHandler(w http.ResponseWriter, r *http.Reques
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	//result display
-	fmt.Fprintf(w, "%+v\n", input)
+	//get a invenortu of all list
+	lists, err := app.models.List.GetAll(input.Name, input.Status, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	//send a JSON response contain all the lists
+	err = app.writeJSON(w, http.StatusOK, envelope{"lists": lists}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 }

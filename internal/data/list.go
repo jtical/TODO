@@ -171,3 +171,51 @@ func (m ListModel) Delete(id int64) error {
 	}
 	return nil
 }
+
+// the GetAll() method returns a list of all the list sorted by id
+func (m ListModel) GetAll(name string, status string, filters Filters) ([]*List, error) {
+	//construct the query to return all schools
+	query := `
+		SELECT id, created_at, name, task, status, version
+		FROM lists
+		WHERE (LOWER(name) = LOWER($1) OR $1 = '')
+		AND (LOWER(status) = LOWER($2) OR $2 = '')
+		ORDER BY id
+	`
+	//create a 3 second timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	//execute the query
+	rows, err := m.DB.QueryContext(ctx, query, name, status)
+	if err != nil {
+		return nil, err
+	}
+	//close the result set
+	defer rows.Close()
+	//intialize an empty slice to hold the list data
+	lists := []*List{}
+	//iterate over the rows in the result set
+	for rows.Next() {
+		var list List
+		//scan the values from the row into the List struct
+		err := rows.Scan(
+			&list.ID,
+			&list.CreatedAt,
+			&list.Name,
+			&list.Task,
+			&list.Status,
+			&list.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+		//add the list to our slice
+		lists = append(lists, &list)
+	}
+	//check if any errors occured while proccessing the result set
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	//return the result set. the slice of lists
+	return lists, nil
+}
